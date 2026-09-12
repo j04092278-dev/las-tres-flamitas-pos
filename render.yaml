@@ -1,0 +1,48 @@
+databases:
+  - name: flamitas-db
+    plan: free
+    databaseName: flamitas
+    user: flamitas
+    region: oregon
+    postgresMajorVersion: 16
+
+services:
+  # ===================== BACKEND API =====================
+  - type: web
+    name: flamitas-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma db push --accept-data-loss && node dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flamitas-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGIN
+        sync: false          # ← Se configura manualmente tras crear el frontend
+      - key: JWT_SECRET
+        generateValue: true
+
+  # ===================== FRONTEND STATIC SITE =====================
+  - type: web
+    name: flamitas-web
+    runtime: static
+    plan: free
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false          # ← URL del backend, ej: https://flamitas-api.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
